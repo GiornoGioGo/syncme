@@ -1,0 +1,7 @@
+# Compiled binaries
+syncme
+syncme.exe
+*.exe
+
+# Local testing directories
+/test/

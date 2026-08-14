@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -35,6 +36,8 @@ func RunClient(targetIP string, files []FileInfo) {
 		return
 	}
 
+	jsonData = append(jsonData, '\n')
+
 	client, err := net.Dial("tcp", targetIP)
 		if (err != nil) {
 			fmt.Printf("Error: %v\n", err)
@@ -53,7 +56,27 @@ func RunClient(targetIP string, files []FileInfo) {
 
 	fmt.Printf("Successfully sent %d bytes.\n", bytesWritten)
 
-	client.Close()
+	client.SetReadDeadline(time.Now().Add(5 * time.Second))
+
+	reader := bufio.NewReader(client)
+
+	data, err := reader.ReadBytes('\n')
+		if (err != nil) {
+			fmt.Printf("Security alert or read failure: %v", err)
+			return
+		}
+
+	var filesToUpload[]string
+
+	err = json.Unmarshal(data, &filesToUpload)
+		if (err != nil) {
+			fmt.Printf("Failed to parse incoming JSON: %v\n", err)
+    		return
+		}
+
+	for _, f := range filesToUpload {
+		fmt.Printf("Server requested these files for upload: %s\n", f)
+	}
 }
 
 func handleConnection(conn net.Conn, localPath string) {
@@ -63,7 +86,9 @@ func handleConnection(conn net.Conn, localPath string) {
 	const maxSteamSaveSize = 10 * 1024 * 1024 
 	limitedReader := io.LimitReader(conn, maxSteamSaveSize)
 
-	data, err := io.ReadAll(limitedReader)
+	reader := bufio.NewReader(limitedReader)
+
+	data, err := reader.ReadBytes('\n')
 		if (err != nil) {
 			fmt.Printf("Security alert or read failure: %v", err)
 			return
@@ -107,10 +132,22 @@ func handleConnection(conn net.Conn, localPath string) {
 		}
 	}
 
+	responseJSON, err := json.Marshal(filesToRequest)
+		if (err != nil) {
+			fmt.Printf("Error marshalling data: %v\n", err)
+			return
+		}
+
+	responseJSON = append(responseJSON, '\n')
+	
+	_, err = conn.Write(responseJSON)
+		if (err != nil) {
+			fmt.Printf("Error writing response data: %v\n", err)
+			return
+		}
 
 	fmt.Printf("Received manifest containing %d files:\n", len(recievedFiles))
 	for _, f := range recievedFiles {
 		fmt.Printf(" - %s (%d bytes) [Hash: %s]\n", f.FilePath, f.FileSize, f.Hash)
 	}
-
 }

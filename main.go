@@ -35,6 +35,6 @@ func main() {
 				os.Exit(1)
 			}
 
-		RunClient(*modeTarget, clientFiles)
+		RunClient(*modeTarget, clientFiles, clientPath)
 	}
 }

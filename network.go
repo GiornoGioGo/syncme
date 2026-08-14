@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -29,7 +31,7 @@ func RunServer(port string, localPath string) {
 	}
 }
 
-func RunClient(targetIP string, files []FileInfo) {
+func RunClient(targetIP string, files []FileInfo, srcRoot string) {
 	jsonData, err := json.Marshal(files)
 	if err != nil {
 		fmt.Println("Error:", err)
@@ -76,6 +78,51 @@ func RunClient(targetIP string, files []FileInfo) {
 
 	for _, f := range filesToUpload {
 		fmt.Printf("Server requested these files for upload: %s\n", f)
+	}
+
+	
+	//upload file(s) to server
+	for _, f := range filesToUpload {
+		for _, file := range files {
+			if (f == file.FilePath) {
+				h := FileHeader{
+					RelPath:  f,
+					FileSize:  file.FileSize,
+				}
+				
+				headerBytes, err := json.Marshal(h)
+					if (err != nil) {
+						fmt.Printf("Error marshalling file header: %v\n", err)
+                		continue
+					}
+				
+				headerBytes = append(headerBytes, '\n')
+
+				_, err = client.Write(headerBytes)
+					if (err != nil) {
+						fmt.Printf("Failed to send file header: %v\n", err)
+						return
+					}
+
+				fmt.Printf("Sent header for: %s (%d bytes)\n", h.RelPath, h.FileSize)
+				fullPath := filepath.Join(srcRoot, f)
+
+				file, err := os.Open(fullPath)
+					if (err != nil) {
+						fmt.Printf("Failed to open %s. %v\n", f, err)
+						return
+					}
+				
+				written, err := io.CopyN(client, file, h.FileSize)
+					if (err != nil) {
+						fmt.Printf("Failed to copy %s. %v\n", f, err)
+						return
+					}
+
+				file.Close()
+				fmt.Printf("written: %v\n", written)
+			}
+		}
 	}
 }
 
@@ -149,5 +196,38 @@ func handleConnection(conn net.Conn, localPath string) {
 	fmt.Printf("Received manifest containing %d files:\n", len(recievedFiles))
 	for _, f := range recievedFiles {
 		fmt.Printf(" - %s (%d bytes) [Hash: %s]\n", f.FilePath, f.FileSize, f.Hash)
+	}
+
+	for range filesToRequest {
+		data, err := reader.ReadBytes('\n')
+			if (err != nil) {
+				fmt.Printf("Security alert or read failure: %v", err)
+				return
+			}
+		
+		var h FileHeader
+		err = json.Unmarshal(data, &h)
+			if (err != nil) {
+				fmt.Printf("Failed to parse incoming JSON: %v\n", err)
+    			return
+			}
+		
+		destPath := filepath.Join(localPath, h.RelPath)
+		err = os.MkdirAll(filepath.Dir(destPath), 0755)
+			if (err != nil) {
+				fmt.Printf("Failed to create subfolders at %s. %v\n", localPath, err)
+				return
+			}
+		
+		newFile, err := os.Create(destPath)
+
+		written, err := io.CopyN(newFile, reader, h.FileSize)
+			if (err != nil) {
+				fmt.Printf("Failed to copy %s. %v\n", newFile, err)
+				return
+			}
+		
+		newFile.Close()
+		fmt.Printf("written: %v\n", written)
 	}
 }

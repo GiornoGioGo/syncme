@@ -24,42 +24,45 @@ func ScanDirectory(root string) ([]FileInfo, error) {
 			return nil
 		}
 
-		if filepath.Ext(path) == ".txt" {
-			info, err := d.Info()
+		info, err := d.Info()
 			if err != nil {
 				fmt.Printf("Warning: Could not read metadata for %s: %v\n", path, err)
 				return nil
 			}
-
-			rel, err := filepath.Rel(root, path)
-			if err != nil {
-				fmt.Println("Could not parse files relative path")
+		
+			if (info.Name() == "prefs.prop") {
+				fmt.Println("Ignoring prefs.prop file")
 				return nil
 			}
 
+			rel, err := filepath.Rel(root, path)
+				if err != nil {
+					fmt.Println("Could not parse files relative path")
+					return nil
+				}
+
+			//open file
 			file, err := os.Open(path)
 			if err != nil {
 				fmt.Printf("Failed to open file: %s\n", err)
 				return nil
 			}
-			// Close inside a loop can leak descriptors; using an anonymous func prevents this
-			func() {
-				defer file.Close()
-				hasher := sha256.New()
+
+			hasher := sha256.New()
 				if _, err := io.Copy(hasher, file); err != nil {
-					fmt.Println("Could not extract hash from file!")
-					return
+					fmt.Println("Could not extract hsh from file!")
+					file.Close()
+					return nil
 				}
 
-				f := FileInfo{
+			file.Close()
+			f := FileInfo{
 					FilePath:  rel,
 					Hash:      fmt.Sprintf("%x", hasher.Sum(nil)),
 					FileSize:  info.Size(),
 					UpdatedAt: info.ModTime(),
 				}
-				files = append(files, f)
-			}()
-		}
+			files = append(files, f)
 		return nil
 	})
 

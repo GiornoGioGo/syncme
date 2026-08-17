@@ -36,5 +36,13 @@ func main() {
 			}
 
 		RunClient(*modeTarget, clientFiles, clientPath)
+	} else if (*modeFlag == "web") {
+		if *modePath == "" {
+			fmt.Println("❌ Error: The -path flag is required to specify a save location.")
+			flag.Usage()
+			os.Exit(1)
+		}
+
+		StartDashboardServer("8080", *modePath)
 	}
 }

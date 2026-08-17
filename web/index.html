@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyncMe Dashboard</title>
+    <style>
+        :root {
+            --bg-primary: #12131a;
+            --bg-secondary: #1c1d26;
+            --accent: #5865f2;
+            --accent-hover: #4752c4;
+            --text-main: #f2f3f5;
+            --text-muted: #949ba4;
+            --status-idle: #23a55a;
+            --status-sync: #f0b232;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+        }
+
+        header {
+            background-color: var(--bg-secondary);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #2e303f;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .node-badge {
+            background-color: #23a55a20;
+            color: var(--status-idle);
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            border: 1px solid var(--status-idle);
+        }
+
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .shares-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .share-card {
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 1.5rem;
+            border: 1px solid #2e303f;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
+        .share-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .share-title {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .share-status {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            color: var(--status-idle);
+        }
+
+        .share-path {
+            background-color: var(--bg-primary);
+            padding: 0.6rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            word-break: break-all;
+            margin-bottom: 1.5rem;
+            border: 1px solid #1a1b24;
+        }
+
+        .sync-btn {
+            background-color: var(--accent);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.2rem;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background-color 0.2s;
+        }
+
+        .sync-btn:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .sync-btn:disabled {
+            background-color: #3f4257;
+            color: var(--text-muted);
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>SyncMe Device Console</h1>
+        <div id="node-status" class="node-badge">Node Operational</div>
+    </header>
+
+    <main>
+        <h2>Managed Share Directories</h2>
+        <div class="shares-grid">
+            
+            <!-- TWD Share Card -->
+            <div class="share-card">
+                <div class="share-header">
+                    <h3 class="share-title">The Walking Dead Definitive</h3>
+                    <span id="share-state" class="share-status">Up to Date</span>
+                </div>
+                <div id="share-path" class="share-path">Loading path configuration...</div>
+                <button id="sync-now-btn" class="sync-btn" onclick="triggerSync()">Sync Folder Pair</button>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        // Periodic background poll looking inside your Go backend REST API
+        async function updateDashboardStatus() {
+            try {
+                const response = await fetch('/api/status');
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                
+                // Update UI fields using data returned from Go
+                document.getElementById('share-path').innerText = data.managed_path;
+                
+                const nodeStatus = document.getElementById('node-status');
+                nodeStatus.innerText = `Node Mode: ${data.status.toUpperCase()}`;
+            } catch (err) {
+                console.error("Dashboard failed to fetch system states:", err);
+                document.getElementById('node-status').innerText = "Node Offline";
+                document.getElementById('node-status').style.borderColor = "#f23f43";
+                document.getElementById('node-status').style.color = "#f23f43";
+            }
+        }
+
+        // Action function triggered when a user clicks the "Sync Folder Pair" button
+        async function triggerSync() {
+            const btn = document.getElementById('sync-now-btn');
+            const stateLabel = document.getElementById('share-state');
+            
+            // 1. Lock the visual indicators so the user doesn't double-click
+            btn.disabled = true;
+            btn.innerText = "Syncing Files...";
+            stateLabel.innerText = "Syncing";
+            stateLabel.style.color = "var(--status-sync)";
+
+            try {
+                // 2. Fire an HTTP POST request to tell Go to perform the sync operations
+                const response = await fetch('/api/sync', { method: 'POST' });
+                
+                if (response.ok) {
+                    stateLabel.innerText = "Up to Date";
+                    stateLabel.style.color = "var(--status-idle)";
+                } else {
+                    stateLabel.innerText = "Sync Failed";
+                    stateLabel.style.color = "#f23f43";
+                }
+            } catch (err) {
+                console.error("Network communication error:", err);
+                stateLabel.innerText = "Connection Error";
+            } finally {
+                // 3. Unlock the interface controls
+                btn.disabled = false;
+                btn.innerText = "Sync Folder Pair";
+            }
+        }
+
+        // Setup background status polling cycle every 3 seconds
+        setInterval(updateDashboardStatus, 3000);
+        // Execute an initial run immediately on layout completion
+        updateDashboardStatus();
+    </script>
+</body>
+</html>

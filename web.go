@@ -53,7 +53,7 @@ func StartDashboardServer(port string, localPath string) {
 				return
 			}
 		
-		RunClient("127.0.0.1:8080", files, localPath)
+		RunClient("127.0.0.1:9090", files, localPath)
 
 		w.WriteHeader(http.StatusOK)
 

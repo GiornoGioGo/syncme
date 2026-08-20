@@ -19,8 +19,8 @@ func main() {
 			os.Exit(1)
 		}
 		var serverPath = *modePath
-		fmt.Println("SyncMe Server listening on port 8080...")
-		RunServer("8080", serverPath)
+		fmt.Println("SyncMe Server listening on port 9090...")
+		RunServer("9090", serverPath)
 	} else if (*modeFlag == "client") {
 		if *modePath == "" {
 			fmt.Println("❌ Error: The -path flag is required to specify a save location.")

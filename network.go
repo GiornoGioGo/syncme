@@ -218,7 +218,26 @@ func handleConnection(conn net.Conn, localPath string) {
 				fmt.Printf("Failed to create subfolders at %s. %v\n", localPath, err)
 				return
 			}
-		
+
+		_, err = os.Stat(destPath)
+			if (err == nil) {
+				currentTime := time.Now().Format("2006-01-02_15-04-05")
+				archivePath := filepath.Join(localPath, ".syncme", "snapshots", currentTime, h.RelPath)
+
+				err := os.MkdirAll(filepath.Dir(archivePath), 0755)
+					if (err != nil) {
+						fmt.Printf("Error creating snapshot. %v\n", err)
+						return
+					}
+				
+				err = os.Rename(destPath, archivePath)
+					if (err != nil) {
+						fmt.Printf("Error renaming old path. %v\n", err)
+						return
+					}	
+				fmt.Printf("📸 Snapshot archived: %s\n", h.RelPath)
+			} 
+	
 		newFile, err := os.Create(destPath)
 
 		written, err := io.CopyN(newFile, reader, h.FileSize)

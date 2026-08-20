@@ -1,48 +1,68 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
 )
 
 func main() {
+	configBytes, err := os.ReadFile("syncme.json")
+		if (err != nil) {
+			fmt.Printf("Error reading syncme.json. %v\n", err)
+			return
+		}
+	var myConfig Config
+	err = json.Unmarshal(configBytes, &myConfig)
+		if (err != nil) {
+			fmt.Printf("Failed to parse incoming JSON: %v\n", err)
+    		return
+		} 
+	
 	modeFlag := flag.String("mode", "server", "Confirm device mode.")
-	modeTarget := flag.String("target", "127.0.0.1:8080", "Target IP address.")
-	modePath := flag.String("path", "", "Path to save file location.")
+	modeTarget := flag.String("target", myConfig.TargetIP, "Target IP address.")
+	modePath := flag.String("path", myConfig.LocalSavePath, "Path to save file location.")
 
 	flag.Parse()
 	if (*modeFlag == "server") {
 		if (*modePath == "") {
-			fmt.Println("❌ Error: The -path flag is required to specify a save location.")
-			flag.Usage()
-			os.Exit(1)
+			*modePath = myConfig.LocalSavePath
+			if (*modePath == "") {
+				fmt.Println("❌ Error: A directory path must be provided via syncme.json or the -path flag.")
+    			os.Exit(1)
+			}
 		}
 		var serverPath = *modePath
 		fmt.Println("SyncMe Server listening on port 9090...")
 		RunServer("9090", serverPath)
+		
 	} else if (*modeFlag == "client") {
 		if *modePath == "" {
-			fmt.Println("❌ Error: The -path flag is required to specify a save location.")
-			flag.Usage()
-			os.Exit(1)
+			*modePath = myConfig.LocalSavePath
+			if (*modePath == "") {
+				fmt.Println("❌ Error: A directory path must be provided via syncme.json or the -path flag.")
+    			os.Exit(1)
+			}
 		}
 		var clientPath = *modePath
-		clientFiles, err := ScanDirectory(clientPath)
-			if (err != nil) {
-				fmt.Printf("Error scanning provided directory. %v\n", err)
-				flag.Usage()
-				os.Exit(1)
-			}
+			clientFiles, err := ScanDirectory(clientPath)
+				if (err != nil) {
+					fmt.Printf("Error scanning provided directory. %v\n", err)
+					flag.Usage()
+					os.Exit(1)
+				}
 
-		RunClient(*modeTarget, clientFiles, clientPath)
+			RunClient(*modeTarget, clientFiles, clientPath)
+		
 	} else if (*modeFlag == "web") {
 		if *modePath == "" {
-			fmt.Println("❌ Error: The -path flag is required to specify a save location.")
-			flag.Usage()
-			os.Exit(1)
+			*modePath = myConfig.LocalSavePath
+			if (*modePath == "") {
+				fmt.Println("❌ Error: A directory path must be provided via syncme.json or the -path flag.")
+    			os.Exit(1)
+			}
 		}
-
 		StartDashboardServer("8080", *modePath)
-	}
+	} 
 }

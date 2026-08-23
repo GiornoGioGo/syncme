@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"net/http"
 	"time"
+	"git.giorno.dev/giorno/syncme/core"
 )
 
 //go:embed web/*
@@ -46,14 +47,14 @@ func StartDashboardServer(port string, localPath string) {
 			return
 		}
 
-		files, err := ScanDirectory(localPath)
+		files, err := core.ScanDirectory(localPath)
 			if (err != nil) {
 				fmt.Printf("Error scanning directory. %v\n", err)
 				http.Error(w, "Internal server error", http.StatusInternalServerError)
 				return
 			}
 		
-		RunClient("127.0.0.1:9090", files, localPath)
+		core.RunClient("127.0.0.1:9090", files, localPath)
 
 		w.WriteHeader(http.StatusOK)
 

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"git.giorno.dev/giorno/syncme/core"
 )
 
 func main() {
@@ -13,7 +14,7 @@ func main() {
 			fmt.Printf("Error reading syncme.json. %v\n", err)
 			return
 		}
-	var myConfig Config
+	var myConfig core.Config
 	err = json.Unmarshal(configBytes, &myConfig)
 		if (err != nil) {
 			fmt.Printf("Failed to parse incoming JSON: %v\n", err)
@@ -35,7 +36,7 @@ func main() {
 		}
 		var serverPath = *modePath
 		fmt.Println("SyncMe Server listening on port 9090...")
-		RunServer("9090", serverPath)
+		core.RunServer("9090", serverPath)
 		
 	} else if (*modeFlag == "client") {
 		if *modePath == "" {
@@ -46,14 +47,14 @@ func main() {
 			}
 		}
 		var clientPath = *modePath
-			clientFiles, err := ScanDirectory(clientPath)
+			clientFiles, err := core.ScanDirectory(clientPath)
 				if (err != nil) {
 					fmt.Printf("Error scanning provided directory. %v\n", err)
 					flag.Usage()
 					os.Exit(1)
 				}
 
-			RunClient(*modeTarget, clientFiles, clientPath)
+			core.RunClient(*modeTarget, clientFiles, clientPath)
 		
 	} else if (*modeFlag == "web") {
 		if *modePath == "" {

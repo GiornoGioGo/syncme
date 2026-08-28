@@ -29,3 +29,8 @@ type ShareProfile struct {
 	IntervalSeconds int `json:"interval_seconds"`
 	LocalPath string `json:"local_path"`
 }
+
+type SyncHandshakeResponse struct {
+	FilesToUpload []string `json:"files_to_upload"`
+	FilesToDownload []string `json:"files_to_download"`
+}

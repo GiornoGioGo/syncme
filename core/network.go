@@ -68,21 +68,21 @@ func RunClient(targetIP string, files []FileInfo, srcRoot string) {
 			return
 		}
 
-	var filesToUpload[]string
+	var response SyncHandshakeResponse 
 
-	err = json.Unmarshal(data, &filesToUpload)
+	err = json.Unmarshal(data, &response)
 		if (err != nil) {
 			fmt.Printf("Failed to parse incoming JSON: %v\n", err)
     		return
 		}
 
-	for _, f := range filesToUpload {
+	for _, f := range response.FilesToUpload {
 		fmt.Printf("Server requested these files for upload: %s\n", f)
 	}
 
 	
 	//upload file(s) to server
-	for _, f := range filesToUpload {
+	for _, f := range response.FilesToUpload {
 		for _, file := range files {
 			if (f == file.FilePath) {
 				h := FileHeader{
@@ -119,10 +119,14 @@ func RunClient(targetIP string, files []FileInfo, srcRoot string) {
 						return
 					}
 
-				file.Close()
+				
 				fmt.Printf("written: %v\n", written)
 			}
 		}
+	}
+
+	for range len(response.FilesToDownload) {
+		uploadSnapshot(response, reader, srcRoot)
 	}
 }
 
@@ -137,7 +141,7 @@ func handleConnection(conn net.Conn, localPath string) {
 
 	data, err := reader.ReadBytes('\n')
 		if (err != nil) {
-			fmt.Printf("Security alert or read failure: %v", err)
+			fmt.Printf("Security alert or read failure: %v\n", err)
 			return
 		}
 
@@ -162,24 +166,41 @@ func handleConnection(conn net.Conn, localPath string) {
 		serverMap[sFile.FilePath] = sFile
 	}
 
-	var filesToRequest []string
+	clientMap := make(map[string]FileInfo)
+	for _, cFile := range recievedFiles {
+		clientMap[cFile.FilePath] = cFile
+	}
+
+	var response SyncHandshakeResponse
 
 	for _, cFile := range recievedFiles {
 		sFile, exists := serverMap[cFile.FilePath]
 		
 		if !exists {
-			filesToRequest = append(filesToRequest, cFile.FilePath)
+			response.FilesToUpload = append(response.FilesToUpload, cFile.FilePath)
 			continue 
 		}
 		
 		if sFile.Hash != cFile.Hash {
 			if cFile.UpdatedAt.After(sFile.UpdatedAt) {
-				filesToRequest = append(filesToRequest, cFile.FilePath)
+				response.FilesToUpload = append(response.FilesToUpload, cFile.FilePath)
 			}
+		} 
+
+		if cFile.Hash != sFile.Hash && sFile.UpdatedAt.After(cFile.UpdatedAt){
+			response.FilesToDownload = append(response.FilesToDownload, sFile.FilePath)
 		}
 	}
 
-	responseJSON, err := json.Marshal(filesToRequest)
+	for _, sFile := range serverMap {
+			_, exists := clientMap[sFile.FilePath]
+
+			if !exists {
+				response.FilesToDownload = append(response.FilesToDownload, sFile.FilePath)
+			}
+		}
+
+	responseJSON, err := json.Marshal(response)
 		if (err != nil) {
 			fmt.Printf("Error marshalling data: %v\n", err)
 			return
@@ -198,8 +219,58 @@ func handleConnection(conn net.Conn, localPath string) {
 		fmt.Printf(" - %s (%d bytes) [Hash: %s]\n", f.FilePath, f.FileSize, f.Hash)
 	}
 
-	for range filesToRequest {
-		data, err := reader.ReadBytes('\n')
+	for range response.FilesToUpload {
+		uploadSnapshot(response, reader, localPath)
+	}
+
+	for _, relPath := range response.FilesToDownload {
+		
+		fullPath := filepath.Join(localPath, relPath)
+
+		serverFile, err := os.Open(fullPath)
+			if (err != nil) {
+				fmt.Printf("Error opening path. %s. %v\n", fullPath, err)
+				return
+			}
+
+		info, err := serverFile.Stat()
+			if (err != nil) {
+				fmt.Printf("Error querying file details. %v\n", err)
+				return
+			}
+
+		h := FileHeader{
+			RelPath:  relPath,
+			FileSize: info.Size(),
+		}
+
+		headerBytes, err := json.Marshal(h)
+			if (err != nil) {
+			fmt.Printf("Error marshalling data: %v\n", err)
+			return
+		}
+
+		headerBytes = append(headerBytes, '\n')
+
+		_, err = conn.Write(headerBytes)
+		if (err != nil) {
+			fmt.Printf("Error writing response data: %v\n", err)
+			return
+		}
+
+		written, err := io.CopyN(conn, serverFile, info.Size())
+			if (err != nil) {
+				fmt.Printf("Failed to copy %v. %v\n", serverFile, err)
+				return
+			}
+
+		serverFile.Close()
+		fmt.Printf("written: %v\n", written)
+	}
+}
+
+func uploadSnapshot(response SyncHandshakeResponse, reader *bufio.Reader, localPath string) {
+	data, err := reader.ReadBytes('\n')
 			if (err != nil) {
 				fmt.Printf("Security alert or read failure: %v", err)
 				return
@@ -242,11 +313,10 @@ func handleConnection(conn net.Conn, localPath string) {
 
 		written, err := io.CopyN(newFile, reader, h.FileSize)
 			if (err != nil) {
-				fmt.Printf("Failed to copy %s. %v\n", newFile, err)
+				fmt.Printf("Failed to copy %v. %v\n", newFile, err)
 				return
 			}
 		
 		newFile.Close()
 		fmt.Printf("written: %v\n", written)
-	}
 }

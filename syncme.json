@@ -1,0 +1,28 @@
+{
+  "device_name": "WindowsGamingPC",
+  "target_ip": "192.168.0.3:9090",
+  "shares": [
+    {
+      "name": "The Walking Dead Definitive Edition",
+      "sync_strategy": "process_monitor",
+      "process_name": "WDC.exe",
+      "interval_seconds": 0,
+      "local_path": "C:/Users/uelmc/OneDrive/Documents/Telltale Games/The Walking Dead Definitive"
+    },
+    {
+      "name": "Synergia",
+      "sync_strategy": "process_monitor",
+      "process_name": "Synergia.exe",
+      "interval_seconds": 0,
+      "local_path": "C:/Users/uelmc/AppData/Roaming/Synergia/saves"
+    },
+    {
+      "name": "Documents and Coding Projects",
+      "sync_strategy": "timer",
+      "process_name": "",
+      "interval_seconds": 60,
+      "local_path": "C:/Users/uelmc/Documents/test_client"
+    }
+  ]
+}
+

@@ -65,5 +65,17 @@ func main() {
 			}
 		}
 		StartDashboardServer("8080", *modePath)
+	} else if (*modeFlag == "daemon") {
+		for _, share := range myConfig.Shares {
+
+			currentShare := share
+
+			if (currentShare.SyncStrategy == "timer") {
+				go core.RunTimerWorker(share, myConfig.TargetIP)
+			} else if (currentShare.SyncStrategy == "process_monitor") {
+				go core.RunProcessMonitorWorker(share, myConfig.TargetIP)
+			}
+		}
+		select {}
 	} 
 }

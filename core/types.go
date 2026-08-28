@@ -19,4 +19,13 @@ type Config struct {
 	TargetIP string `json:"target_ip"`
 	LocalSavePath string `json:"local_save_path"`
 	IgnoredFiles []string `json:"ignored_files"`
+	Shares []ShareProfile `json:"shares"`
+}
+
+type ShareProfile struct {
+	Name string `json:"name"`
+	SyncStrategy string `json:"sync_strategy"`
+	ProcessName string `json:"process_name"`
+	IntervalSeconds int `json:"interval_seconds"`
+	LocalPath string `json:"local_path"`
 }
